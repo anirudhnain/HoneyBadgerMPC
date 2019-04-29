@@ -12,7 +12,7 @@ class BatchProcess():
 
 	def processNode(self, node):
 		#leafNode
-		if len(node.child) == 0:
+		if not node.op:
 			return node.val
 		#Only single child
 		elif len(node.child) == 1:
@@ -23,27 +23,30 @@ class BatchProcess():
 			initalVal = node.val(childern[0].res, childern[1].res)
 			ans = initalVal
 			for i in range(2, len(childern)):
-				ans = node.val(res, childern[i].res)
+				ans = node.val(ans, childern[i].res)
 			return ans
 
-	#Assuming all child nodes are of same size, dimesion, etc.
 	def process(self, batchGraph):
 		for key in batchGraph:
+			#merge all child nodes for this operator
 
-			node0 = batchGraph[key][0]
-			#merge all nodes child into two lists
-			child0 = node0.child[0].res
-			child1 = node0.child[1].res
+			initalNode = batchGraph[key][0]
+			numberOfChild = len(initalNode.child)
+
+			childList = []
+
+			#Assuming all child nodes are of same size, dimesion, etc.
+			for i in range(numberOfChild):
+				childList.append(initalNode.child[i].res)
 
 			for i in range(1, len(batchGraph[key])):
 				node = batchGraph[key][i]
-				print (child0,  node.child[0].res)
-				print (child1,  node.child[1].res)
-				child0 = np.concatenate([child0, node.child[0].res])
-				child1 = np.concatenate([child1, node.child[1].res])
+				for j in range(len(childList)):
+					childList[j] = np.concatenate([childList[j],  node.child[j].res])
 
+			print (childList)
 			newNode = NumpyBatchNode(key)
-			newNode.child = [NumpyBatchNode(child0),NumpyBatchNode(child1)]
+			newNode.child = list(map(lambda x: NumpyBatchNode(x), childList))
 			newNode.res = self.processNode(newNode)
 
 			start = 0
@@ -134,25 +137,25 @@ class NumpyBatchNode():
 		rootNodes.add(result)
 		return result
 
-a = NumpyBatchNode(np.array([2, 4]))
-b = NumpyBatchNode(np.array([4, 6]))
-c = NumpyBatchNode(np.array([3, 4]))
-d = NumpyBatchNode(np.array([5, 6]))
+# a = NumpyBatchNode(np.array([2, 4]))
+# b = NumpyBatchNode(np.array([4, 6]))
+# c = NumpyBatchNode(np.array([3, 4]))
+# d = NumpyBatchNode(np.array([5, 6]))
 
-k = a*b
-t = c*d
+# k = a*b
+# t = c*d
 
-u = k*t
+# u = k*t
 
-f = a*d
+# f = a*d
 
-bp = BatchProcess()
-bp.evaluate()
+# bp = BatchProcess()
+# bp.evaluate()
 
-print (k.res)
-print (t.res)
-print (u.res)
-print (f.res)
+# print (k.res)
+# print (t.res)
+# print (u.res)
+# print (f.res)
 
 
 # a = NumpyBatchNode(np.array([[2, 4],[9,8]]))
