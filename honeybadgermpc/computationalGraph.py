@@ -1,13 +1,8 @@
 import operator
 import numpy as np
-import asyncio
 
 global rootNodes 
 rootNodes = set()
-
-async def open(x):
-	print ('x:',x)
-	return x
 
 class BatchProcess():
 
@@ -15,13 +10,13 @@ class BatchProcess():
 		self.opToBeBatched = {operator.mul}
 		self.computed = set()
 
-	async def processNode(self, node):
+	def processNode(self, node):
 		#leafNode
 		if not node.op:
 			return node.val
 		#Only single child
 		elif len(node.child) == 1:
-			return await node.val(node.child[0].res)
+			return node.val(node.child.res)
 		#Multiple Child
 		else:
 			childern = node.child
@@ -31,7 +26,7 @@ class BatchProcess():
 				ans = node.val(ans, childern[i].res)
 			return ans
 
-	async def process(self, batchGraph):
+	def process(self, batchGraph):
 		for key in batchGraph:
 			#merge all child nodes for this operator
 
@@ -52,9 +47,8 @@ class BatchProcess():
 			print (childList)
 			newNode = NumpyBatchNode(key)
 			newNode.child = list(map(lambda x: NumpyBatchNode(x), childList))
-			newNode.res = await self.processNode(newNode)
+			newNode.res = self.processNode(newNode)
 
-			print (newNode.res)
 			start = 0
 			for node in batchGraph[key]:
 				node.res = newNode.res[start:start+len(node.child[0].res)]
@@ -74,7 +68,7 @@ class BatchProcess():
 		else:
 			batchGraph[node.val] = [node]
 
-	async def batchProcess(self, stack):
+	def batchProcess(self, stack):
 		batchGraph = {}
 		for (i,elem) in enumerate(stack):
 			if not elem.op:
@@ -82,11 +76,11 @@ class BatchProcess():
 			elif self.allChildProcessed(elem):
 				self.addToGraph(batchGraph, elem)
 			elif (elem.val not in self.opToBeBatched) or (not self.allChildProcessed(elem)):
-				await self.process(batchGraph)
+				self.process(batchGraph)
 				batchGraph = {}
 				self.addToGraph(batchGraph, elem)
 		#reached end of sort. Final process
-		await self.process(batchGraph)
+		self.process(batchGraph)
 
 	def topologicalSortUtil(self, node, visited, stack):
 		visited.add(node)
@@ -94,14 +88,14 @@ class BatchProcess():
 			self.topologicalSortUtil(child, visited, stack)
 		stack.append(node) 
 	
-	async def evaluate(self):
+	def evaluate(self):
 		visited = set()
 		stack = []
 		global rootNodes
 		for node in rootNodes:
 			if node not in visited:
 				self.topologicalSortUtil(node, visited, stack)
-			await self.batchProcess(stack)
+			self.batchProcess(stack)
 			stack = []
 		rootNodes = set()
 
@@ -120,16 +114,13 @@ class NumpyBatchNode():
 	def __mul__(self, other):
 		assert isinstance(other, NumpyBatchNode) or isinstance(other, int) or isinstance(other, float)
 		if isinstance(other,NumpyBatchNode):
-			return self.createComputationalTree(operator.mul, other)
+			return self.createComputationalTree(other, operator.mul)
 		else:
-			return self.createComputationalTree(operator.mul, NumpyBatchNode(np.array([other])))
+			return self.createComputationalTree(NumpyBatchNode(np.array([other])), operator.mul)
 
 	__rmul__ = __mul__
 
-	def open(self):
-		return self.createComputationalTree(open)
-
-	def createComputationalTree(self, parent, node2=None):
+	def createComputationalTree(self, node2, parent):
 
 		result = NumpyBatchNode(parent)
 
@@ -138,26 +129,13 @@ class NumpyBatchNode():
 		if self in rootNodes:
 			rootNodes.remove(self)
 
-		result.child.append(self)
+		if node2 in rootNodes:
+			rootNodes.remove(node2)
 
-		if node2:
-			if node2 in rootNodes:
-				rootNodes.remove(node2)
-			result.child.append(node2)
+		result.child.append(self)
+		result.child.append(node2)
 		rootNodes.add(result)
 		return result
-
-asyncio.set_event_loop(asyncio.new_event_loop())
-loop = asyncio.get_event_loop()
-
-a = NumpyBatchNode(np.array([1, 2]))
-b = NumpyBatchNode(np.array([3, 4]))
-
-c = a.open()
-d = b.open()
-
-print (c,d)
-z = c*d
 
 # a = NumpyBatchNode(np.array([2, 4]))
 # b = NumpyBatchNode(np.array([4, 6]))
@@ -171,8 +149,8 @@ z = c*d
 
 # f = a*d
 
-bp = BatchProcess()
-loop.run_until_complete(bp.evaluate())
+# bp = BatchProcess()
+# bp.evaluate()
 
 # print (k.res)
 # print (t.res)
